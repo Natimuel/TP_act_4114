@@ -1,6 +1,9 @@
 ############################
 ##### Travail Patrique #####
 ############################
+library(CASdatasets)
+library(ggplot2)
+
 
 data("beMTPL16")
 data <- beMTPL16
@@ -12,7 +15,7 @@ str(data)
 ###signal###
 
 data$signal[!(data$signal == 0)]  ## On a que des 0 ou 1, on devrait les
-                                  ## transformer en valeur boléenne
+## transformer en valeur boléenne
 
 
 
@@ -54,6 +57,7 @@ unique(data$policy_year)
 
 
 ###vehicle_model###
+# Présence de valeur manquante (ou autre signification) (ex : AU-.)
 
 data$vehicle_mod_cha <- data$vehicle_model
 data$vehicle_mod_cha <- substr(as.character(data$vehicle_mod_cha), start = 0, stop = 2)
@@ -68,19 +72,20 @@ for (i in 1:length(model))
 {
     y <- data$vehicle_mod_num[data$vehicle_brand %in% model[i]]
     x <- data$vehicle_age[data$vehicle_brand %in% model[i]]
-    x <- x[!is.na(y)]
-    y <- factor(y[!is.na(y)])
+    y[is.na(y)] <- "NA"
+    y <- factor(y, levels = c("NA", sort(unique(y[y !="NA"]))))
 
     data2 <- data.frame(x, y)
     g <- ggplot(data = data2, aes(x = y, y = x)) + geom_boxplot() +
         labs(title = paste("Marque d'auto", model[i]), x = "Modèle",
              y = "Âge du véhicule") + theme(
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
-    )
+                 axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+             )
     print(g)
 }
 
 
 # on remarque que les modèles avec des chiffres plus élevés on tendance à être moins vieux
+
 
 
