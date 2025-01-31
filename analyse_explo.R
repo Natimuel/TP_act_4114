@@ -72,26 +72,32 @@ data$vehicle_mod_num <- as.numeric(substr(data$vehicle_mod_num, start = 4, stop 
 
 model <- unique(data$vehicle_brand)
 
-for (i in 1:length(model))
+#mettez le nom de la variable entre ""
+model_fun <- function(variable)
 {
-    y <- data$vehicle_mod_num[data$vehicle_brand %in% model[i]]
-    x <- data$vehicle_age[data$vehicle_brand %in% model[i]]
-    y[is.na(y)] <- "NA"
-    y <- factor(y, levels = c("NA", sort(unique(y[y !="NA"]))))
+    for (i in 1:length(model))
+    {
+        y <- data$vehicle_mod_num[data$vehicle_brand %in% model[i]]
+        x <- data[[variable]][data$vehicle_brand %in% model[i]]
+        y[is.na(y)] <- "NA"
+        y <- factor(y, levels = c("NA", sort(unique(y[y !="NA"]))))
 
-    data2 <- data.frame(x, y)
-    g <- ggplot(data = data2, aes(x = y, y = x)) + geom_boxplot() +
-        labs(title = paste("Marque d'auto", model[i]), x = "Modèle",
-             y = "Âge du véhicule") + theme(
-        axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
-    )
-    print(g)
+        data2 <- data.frame(x, y)
+        g <- ggplot(data = data2, aes(x = y, y = x)) + geom_boxplot() +
+            labs(title = paste("Marque d'auto", model[i]), x = "Modèle",
+                 y = variable) + theme(
+                     axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+                 )
+        print(g)
+    }
 }
 
+model_fun(vehicle_age)
 
 # on remarque que les modèles avec des chiffres plus élevés on tendance à être moins vieux
 
-
+# Si on compare le modèle avec le catalog_value, les NA ont des catalog_values de 0 à tous les coùts
+# probablement un indice que nous avcons une situation MAR
 
 ###vehicle_power###
 summary(data$vehicle_power)
