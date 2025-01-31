@@ -103,12 +103,13 @@ model_fun <- function(variable)
 }
 
 model_fun("vehicle_age")
-model_fun("vehicle_value")
+model_fun("catalog_value")
 
 # on remarque que les modèles avec des chiffres plus élevés on tendance à être moins vieux
 
-# Si on compare le modèle avec le catalog_value, les NA ont des catalog_values de 0 à tous les coùts
+# Si on compare le modèle avec le catalog_value, les NA ont des catalog_values de 0 pour plusieurs marque
 # probablement un indice que nous avons une situation MAR
+# Si on compare le modèle avec le catalog_value, certaines marques on tous des valeurs de 0 (peu importe le modèle)
 
 ###vehicle_power###
 summary(data$vehicle_power)
