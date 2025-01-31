@@ -63,11 +63,9 @@ unique(data$policy_year)
 ###vehicle_model###
 # Présence de valeur manquante (ou autre signification) (ex : AU-.)
 
-data$vehicle_mod_cha <- data$vehicle_model
-data$vehicle_mod_cha <- substr(as.character(data$vehicle_mod_cha), start = 0, stop = 2)
-unique(data$vehicle_mod_cha)
 
 data$vehicle_mod_num <- data$vehicle_model
+                        # Selectionne les numéros des véhicules
 data$vehicle_mod_num <- as.numeric(substr(data$vehicle_mod_num, start = 4, stop = 10))
 
 model <- unique(data$vehicle_brand)
@@ -77,13 +75,25 @@ model_fun <- function(variable)
 {
     for (i in 1:length(model))
     {
-        y <- data$vehicle_mod_num[data$vehicle_brand %in% model[i]]
-        x <- data[[variable]][data$vehicle_brand %in% model[i]]
-        y[is.na(y)] <- "NA"
-        y <- factor(y, levels = c("NA", sort(unique(y[y !="NA"]))))
+        # Relie les numéros des modèles à la marque du véhicule
+        x <- data$vehicle_mod_num[data$vehicle_brand %in% model[i]]
 
+        # Relie les données de l'arguement au modèle
+                  # Pour rendre l'argument dynamique
+        y <- data[[variable]][data$vehicle_brand %in% model[i]]
+
+        # Définis les données manquantes (les numéros de modèles qui finissent avec un ".")
+        x[is.na(x)] <- "NA"
+
+        # Reclassification des numéros de modèles pour que "NA" apparaisse en premier
+
+                                            # si je ne met pas as.numeric, les valeurs se trie en caractères
+        x <- factor(x, levels = c("NA", sort(as.numeric(unique(x[x !="NA"])))))
+
+        # data.frame pour ggplot
         data2 <- data.frame(x, y)
-        g <- ggplot(data = data2, aes(x = y, y = x)) + geom_boxplot() +
+
+        g <- ggplot(data = data2, aes(x = x, y = y)) + geom_boxplot() +
             labs(title = paste("Marque d'auto", model[i]), x = "Modèle",
                  y = variable) + theme(
                      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
@@ -92,12 +102,13 @@ model_fun <- function(variable)
     }
 }
 
-model_fun(vehicle_age)
+model_fun("vehicle_age")
+model_fun("vehicle_value")
 
 # on remarque que les modèles avec des chiffres plus élevés on tendance à être moins vieux
 
 # Si on compare le modèle avec le catalog_value, les NA ont des catalog_values de 0 à tous les coùts
-# probablement un indice que nous avcons une situation MAR
+# probablement un indice que nous avons une situation MAR
 
 ###vehicle_power###
 summary(data$vehicle_power)
