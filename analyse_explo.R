@@ -71,7 +71,7 @@ data$vehicle_mod_num <- as.numeric(substr(data$vehicle_mod_num, start = 4, stop 
 model <- unique(data$vehicle_brand)
 
 #mettez le nom de la variable entre ""
-model_fun <- function(variable)
+model_fun <- function(variable, type)
 {
     for (i in 1:length(model))
     {
@@ -93,7 +93,7 @@ model_fun <- function(variable)
         # data.frame pour ggplot
         data2 <- data.frame(x, y)
 
-        g <- ggplot(data = data2, aes(x = x, y = y)) + geom_boxplot() +
+        g <- ggplot(data = data2, aes(x = x, y = y)) + type() +
             labs(title = paste("Marque d'auto", model[i]), x = "Modèle",
                  y = variable) + theme(
                      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
@@ -102,7 +102,8 @@ model_fun <- function(variable)
     }
 }
 
-model_fun("vehicle_age")
+# Exemple
+model_fun("vehicle_age", geom_boxplot)
 model_fun("catalog_value")
 
 # on remarque que les modèles avec des chiffres plus élevés on tendance à être moins vieux
