@@ -1,11 +1,17 @@
 ############################
 ##### Travail Patrique #####
 ############################
+
 library(CASdatasets)
 library(ggplot2)
 library(dplyr)
+library(nnet)
+library(FactoMineR)
+library(factoextra)
 library(chron)
+library(mice)
 data("beMTPL16")
+
 data <- beMTPL16
 
 ##### Analyse des données #####
@@ -124,15 +130,37 @@ sapply(2:19, function(i) unique(data[, i]))
 data$claim_time <- times(paste0(as.character(data$claim_time), ":00"))
 
 # signal
-data$signal <- as.logical(data$signal)
+data$signal <- as.factor(data$signal)
 
+# policy_year
+data$policy_year <- as.factor(data$policy_year)
+
+# number_of_liability_claim
+data$number_of_liability_claims <- as.factor(data$number_of_liability_claims)
+
+# number_of_bodily_injury_liability_claims
+data$number_of_bodily_injury_liability_claims <- as.factor(data$number_of_bodily_injury_liability_claims)
+
+# insured_birth
+data$insured_birth_year <- 1970 - data$insured_birth_year
+
+# vehicle_model
+
+# pour la fonction model_fun
+vehicle_model_num <- data$vehicle_model
+
+data$vehicle_model <- as.factor(substr(data$vehicle_model, start = 4, stop = 10))
+data$vehicle_model[data$vehicle_model == "."] <- NA
+
+# mileage
+data$mileage <- as.factor(data$mileage)
 
 ##### Traitement des valeurs manquantes #####
 ### vehicle_model
 
-data$vehicle_mod_num <- data$vehicle_model
+
 # Selectionne les numéros des véhicules
-data$vehicle_mod_num <- as.numeric(substr(data$vehicle_mod_num, start = 4, stop = 10))
+vehicle_model_num <- as.numeric(substr(vehicle_model_num, start = 4, stop = 10))
 
 model <- unique(data$vehicle_brand)
 
@@ -142,7 +170,7 @@ model_fun <- function(variable, type = geom_boxplot)
     for (i in 1:length(model))
     {
         # Relie les numéros des modèles à la marque du véhicule
-        x <- data$vehicle_mod_num[data$vehicle_brand %in% model[i]]
+        x <- vehicle_model_num[data$vehicle_brand %in% model[i]]
 
         # Relie les données de l'arguement au modèle
         # Pour rendre l'argument dynamique
@@ -184,25 +212,158 @@ data$catalog_value[data$catalog_value == 0] <- NA
 
 ### Type de données manquantes
 
+# Cette fonction vise à effectuer des tests d'hypothèses variant en fonction de la nature de
+# la variable qui sera tester (chisq ou student)
+
 typeNA <- function(variableNA)
 {
-    x <- numeric(length(18))
-    variable_test <- data %>% select(c(-variableNA, -insurance_contract))
-    for(i in 1:18)
-    {
-        if (sapply(variable_test, class)[i] %in% c("numeric", "integer", "times"))
-            x[i] <- t.test(x = variable_test[, i][is.na(data[[variableNA]])],
-                   y = variable_test[, i][!is.na(data[[variableNA]])])$p.value
 
-        else x[i] <- chisq.test(x = is.na(data[[variableNA]]),
-                        y = variable_test[, i], correct = F)$p.value
+    variable_test <- data %>% select(c(-variableNA, -insurance_contract))
+
+    variable_test_num <- variable_test[sapply(variable_test, class) %in% c("numeric", "integer", "times")]
+
+    variable_test_categ <- variable_test[sapply(variable_test, class) %in% "factor"]
+
+
+    if (class(data[[variableNA]]) %in% c("numeric", "integer", "times"))
+    {
+        x <- numeric(length(variable_test_num[, ]))
+
+        for(i in 1:length(variable_test_num[, ]))
+        {
+            x[i] <- t.test(x = variable_test_num[, i][is.na(data[[variableNA]])],
+                           y = variable_test_num[, i][!is.na(data[[variableNA]])])$p.value
+        }
+
     }
 
+
+    else
+    {
+        x <- numeric(length(variable_test_categ[, ]))
+
+        for(i in variable_test_num[, ]:(length(variable_test_categ[, ]) +  variable_test_num[, ]))
+        {
+            x[i] <- chisq.test(x = is.na(data[[variableNA]]),
+                                   y = variable_test_categ[, i], correct = F)$p.value
+        }
+
+    }
     x
 }
 
-typeNA("vehicle_mod_num") <= 0.05
+typeNA("vehicle_model") <= 0.05
 typeNA("catalog_value") <= 0.05
 
+?aggregate
+md.pattern(data, plot = T)
+
+#### Imputation stochastique par une régression
 
 
+# catalog_value
+data$catalog_value[data$catalog_value == 0] <- NA
+data$vehicle_brand <- as.factor(data$vehicle_brand)
+data
+
+
+data_for_catalog_pred <- data.frame(log(data$catalog_value), data[, 8])
+str(data_for_catalog_pred)
+summary(data_for_catalog_pred)
+                                                      # soit on utilise norm ou pmm  et polyreg ou polr
+imput <- mice(data_for_catalog_pred, m=1,  method = c("norm", "polyreg"))
+don.compl <- complete(imput)
+data$catalog_value <- exp(don.compl[, 1])
+mean(exp(don.compl[, 1]))
+sd(exp(don.compl[, 1]))
+
+# my_glm <- glm(catalog_value~vehicle_power, data, family = Gamma(link = "log"))
+# n <- sum(is.na(data$catalog_value))
+#
+# previsions <- predict(my_glm, newdata=data[is.na(data$catalog_value),],type="response")
+#
+# shape <- 1 / summary(my_glm)$dispersion
+#
+# data$catalog_value[is.na(data$catalog_value)] <- rgamma(length(previsions), shape = shape, scale = mean(previsions) / shape)
+#
+# mean(data$catalog_value)
+
+mean(data$catalog_value[!is.na(data$catalog_value)])
+# [1] 842291.5
+sd(data$catalog_value[!is.na(data$catalog_value)])
+
+# vehicle_model
+data_for_model_pred <- data.frame(data$vehicle_model, data[, c(8, 11)])
+str(data_for_model_pred)
+summary(data_for_model_pred)
+
+# peut-être le faire pour chaque marque de véhicule, un à la fois
+imput <- mice(data_for_model_pred, m=1,  method = c("polyreg", "polyreg", "norm"))
+don.compl <- complete(imput)
+mean(exp(don.compl[, 1]))
+sd(exp(don.compl[, 1]))
+
+
+vehicle_model_num_pred <- as.factor(vehicle_model_num)
+
+model <- unique(data$vehicle_brand)
+
+for (i in 1:length(model))
+{
+    # Relie les numéros des modèles à la marque du véhicule
+    x <- vehicle_model_num_pred[data$vehicle_brand %in% model[i]]
+
+    # Relie les données de l'arguement au modèle
+    # Pour rendre l'argument dynamique
+    y <- data$vehicle_brand[data$vehicle_brand %in% model[i]]
+
+    z <- data$vehicle_power[data$vehicle_brand %in% model[i]]
+
+    data_for_model_pred <- data.frame(x, y, z)
+
+    imput <- mice(data_for_model_pred, m=1,  method = c("cart", "polyreg", "norm"))
+    don.compl <- complete(imput)
+}
+str(data)
+summary(data[, c(-1, -2, -8, -9, -10, -14, -15, -18, -19)])
+
+## Analyse en composante principale
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# On doit retirer toutes les composantes non numérique
+acp <- PCA(data[, c(-1, -2, -8, -9, -10, -14, -15, -18, -19)], scale = T)
+fviz_screeplot(acp)
+acp$eig
+acp <- PCA(data[, -c(1, 2, 8, 9, 10, 14, 15, 18, 19)])
+plot(acp$eig[, 3], type = "b")
+abline(h = 80, col = "red")
+acp$eig[, 3]
+
+
+
+
+
+data1 <- data[, c(-1, -2, -8, -9, -10, -12, -14, -15, -18, -19)]
+library(cluster)
+
+
+kmoy <- kmeans(data1, centers = 7, nstart= 10)
+table(kmoy$cluster)
+data1_sim <- data1[sample(1:nrow(data), 20000), ]
+fviz_nbclust(scale(data1_sim), FUNcluster = kmeans, nstart = 3, method = "wss", k.max = 25)
+data2 <- data.frame(x= acp$ind$coord[, 1], y = acp$ind$coord[, 2], groupe = )
